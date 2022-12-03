@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+      #video {
+        object-fit: initial;
+        width: 700px;
+        height: 700px;
+      }
+      .custom-flex {
+        display: flex;
+        flex-direction: column-reverse;
+        gap: 15px;
+      }
+      .container1 {
+        display: flex;
+        flex-direction: row;
+        gap: 15px;
+        padding: 0px 0px 10px 0px;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      class="p-6 px-12 border flex flex-row justify-between items-start shadow"
+    >
+      <p class="text-3xl font-semibold drop-shadow">VIDGEN</p>
+      <a
+        href="https://forms.gle/Jyq14WDMr6oYj58P8"
+        target="_blank"
+        class="text-md font-semibold drop-shadow"
+      >
+        Feedback
+      </a>
+    </div>
+    <div
+      class="py-2 flex flex-row py-6 items-start justify-between space-between px-12"
+    >
+      <div class="flex flex-col gap-3 justify-start">
+        <label class="font-semibold text-2xl capitalize"> original video</label>
+        <video
+          width="700"
+          height="700"
+          name="og-video-source"
+          id="video"
+          controls
+          muted
+        >
+          <source src="" nametype="video/mp4" />
+        </video>
+        <input type="file" name="org-video" class="" />
+      </div>
+      <div class="flex flex-col gap-3" id="generatedVideoContainer">
+        <label class="font-semibold text-2xl capitalize">
+          Generated video</label
+        >
+        <video
+          width="700"
+          height="700"
+          name="diff-video-source"
+          controls
+          id="video"
+        >
+          <source src="" type="video/mp4" name />
+        </video>
+        <input type="file" name="diff-video" />
+      </div>
+    </div>
+    <button
+      class="ml-12 border p-4 px-8 bg-black text-white rounded-md font-semibold text-xl hover:shadow-xl"
+      id="Generate"
+    >
+      Generate Video
+    </button>
+    <button
+      class="ml-12 border p-4 px-8 bg-black text-white rounded-md font-semibold text-xl hover:shadow-xl"
+      id="Play"
+    >
+      Play
+    </button>
+    <div class="flex flex-row justify-between p-12">
+      <div class="w-[700px] m-2" id="metricsContainer"></div>
+      <div class="w-[700px] m-2" id="resultsContainer"></div>
+    </div>
+    <script>
+      function toTwoDecimalPlaces(str) {
+        console.log(str);
+        var [int, decimal] = str.split(".");
+        decimal = decimal.slice(0, 2);
+        return int + "." + decimal;
+      }
+
+      const a = "./results/predrnn/final_with_audio.mp4";
+      const ogVideoInput = document.getElementsByName("org-video")[0];
+      const ogvideoSource = document.getElementsByName("og-video-source")[0];
+
+      const predVideoInput = document.getElementsByName("diff-video")[0];
+      const preVideoSource = document.getElementsByName("diff-video-source")[0];
+
+      const globalBody = document.getElementsByTagName("body")[0];
+
+      const playBtn = document.getElementById("Play");
+      const GenerateBtn = document.getElementById("Generate");
+      var ogFileName;
+
+      const generatedVideoContainer = document.getElementById(
+        "generatedVideoContainer"
+      );
+
+      const resultsContainer = document.getElementById("resultsContainer");
+      const metricsContainer = document.getElementById("metricsContainer");
+      var isPlaying = 0;
+
+      ogVideoInput.addEventListener("change", function (event) {
+        var a = URL.createObjectURL(event.target.files[0]);
+        ogvideoSource.src = a;
+        ogFileName = event.target.files[0].name;
+        console.log(event.target.files[0].mozFullPath);
+      });
+
+      predVideoInput.addEventListener("change", function (event) {
+        var a = URL.createObjectURL(event.target.files[0]);
+        preVideoSource.src = a;
+      });
+
+      playBtn.addEventListener("click", function (event) {
+        event.preventDefault();
+        if (isPlaying === 0) {
+          ogvideoSource.play();
+          preVideoSource.play();
+          isPlaying = 1;
+          playBtn.innerText = "Pause";
+        } else {
+          ogvideoSource.pause();
+          preVideoSource.pause();
+          isPlaying = 0;
+          playBtn.innerText = "Play";
+        }
+      });
+      GenerateBtn.addEventListener("click", function (event) {
+        event.preventDefault();
+        const existingResultDiv = document.getElementById("resultsDiv");
+        if (existingResultDiv !== null) {
+          existingResultDiv.remove();
+        }
+
+        console.log(ogFileName);
+        fetch("http://localhost:5000/generateVideo", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ fileName: ogFileName }),
+        })
+          .then((res) => {
+            res.json().then((res) => {
+              console.log(res);
+              <!-- const Obj=res['metrics'] -->
+              var Obj = res["metrics"];
+              console.log("oo", Obj);
+              const results = document.createElement("div");
+              const metricsWrapper = document.createElement("div");
+              results.setAttribute("id", "resultsDiv");
+              metricsWrapper.setAttribute("id", "metricsWrapper");
+              var heading = document.createElement("p");
+              heading.innerText = "Results";
+              heading.classList.add("text-3xl", "pt-6");
+              results.classList.add("py-1", "flex", "flex-col");
+              metricsWrapper.classList.add("py-1", "flex", "flex-col");
+
+              var MeticsHeading = document.createElement("p");
+              MeticsHeading.innerText = "Metrics";
+              MeticsHeading.classList.add("text-3xl", "pt-6");
+
+              var mse = document.createElement("span");
+              var ssim = document.createElement("span");
+              var psnr = document.createElement("span");
+              var lpips = document.createElement("span");
+
+              var finalFrameCount = document.createElement("span");
+              var OgFrameCount = document.createElement("span");
+              var finlVideoSize = document.createElement("span");
+              var OgVideSize = document.createElement("span");
+              var GeneratedFrames = document.createElement("span");
+              var timeTaken = document.createElement("span");
+              var percent_size_reduction = document.createElement("span");
+              const resultsArr = [
+                finalFrameCount,
+                OgFrameCount,
+                GeneratedFrames,
+                OgVideSize,
+                finlVideoSize,
+                percent_size_reduction,
+              ];
+              const metricsarr = [timeTaken, mse, ssim, psnr, lpips];
+
+              for (let i = 1; i < resultsArr.length; i++) {
+                const element = resultsArr[i];
+                element.classList.add("py-1", "font-semibold");
+              }
+              for (let i = 0; i < metricsarr.length; i++) {
+                const metricsElement = metricsarr[i];
+                metricsElement.classList.add("py-1", "font-semibold");
+              }
+              timeTaken.innerText = `Total Time Taken to Generate: ${toTwoDecimalPlaces(
+                Obj["time"]
+              )} seconds`;
+              mse.innerText = `Average MSE Per Sequence: ${Obj["mse"]}`;
+              ssim.innerText = `Average SSIM Per Frame: ${Obj["ssim"]}`;
+              psnr.innerText = `Average PSNR Per Frame: ${Obj["psnr"]}`;
+              lpips.innerText = `Average LPIPS Per Frame: ${Obj["lp"]}`;
+              finalFrameCount.innerText = `Total Number of Frames in Generated Video ${Obj["final_frm_cnt"]}`;
+              OgFrameCount.innerText = `Total Number of Frames in Input Video ${Obj["input_frm_cnt"]}`;
+              finlVideoSize.innerText = `Size of Generated Video - ${toTwoDecimalPlaces(
+                Obj["final_vid_size"]
+              )} (in Kb)`;
+              OgVideSize.innerText = `Size of Input Video - ${toTwoDecimalPlaces(
+                Obj["input_vid_size"]
+              )} (in Kb)`;
+              GeneratedFrames.innerText = `Number Of Frames Generated by The Model - ${Obj["frames_generated"]}`;
+              percent_size_reduction.innerText = `Percentage Reduction In Size - ${toTwoDecimalPlaces(
+                Obj["percent_size_reduction"]
+              )}`;
+              for (let i = 1; i < resultsArr.length; i++) {
+                const element = resultsArr[i];
+                results.appendChild(element);
+              }
+
+              for (let i = 0; i < metricsarr.length; i++) {
+                const element = metricsarr[i];
+                metricsWrapper.appendChild(element);
+              }
+              resultsContainer.append(heading);
+              resultsContainer.append(results);
+
+              metricsContainer.append(MeticsHeading);
+              metricsContainer.append(metricsWrapper);
+
+              preVideoSource.src = a;
+            });
+          })
+          .catch((err) => console.log(err));
+      });
+    </script>
+  </body>
+</html>

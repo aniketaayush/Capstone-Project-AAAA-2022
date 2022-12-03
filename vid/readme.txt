@@ -1,0 +1,1 @@
+Videos to be converted to the proper resolution should be placed here. (Before running convert_resolution.py)
